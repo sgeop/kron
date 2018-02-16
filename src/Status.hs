@@ -13,4 +13,3 @@ data Status
   deriving (Show, Read, Eq)
 
 derivePersistField "Status"
-

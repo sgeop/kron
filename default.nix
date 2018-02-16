@@ -1,4 +1,4 @@
-{ mkDerivation, base, beam-core, beam-sqlite, persistent
+{ mkDerivation, base, beam-core, beam-sqlite, mtl, persistent
 , persistent-sqlite, persistent-template, stdenv, time, hlint
 , hdevtools, ghcid}:
 mkDerivation {

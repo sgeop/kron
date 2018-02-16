@@ -10,8 +10,10 @@
 
 module DB where
 
+import Control.Monad.Reader
 import Control.Monad.IO.Class(liftIO)
 
+import Data.Int(Int64)
 import Data.Time
 
 import Database.Persist
@@ -28,10 +30,23 @@ TaskRun
   endTime UTCTime Maybe
   status Status
   dagRun DagRunId
+  DagRunTask taskId dagRun
   deriving Show
 
 DagRun
-  dagId String
   scheduledStartTime UTCTime
 |]
 
+asSqlBackend :: ReaderT SqlBackend m a -> ReaderT SqlBackend m a
+asSqlBackend = id
+
+
+initDagRun sst = insert $
+  DagRun sst
+
+initTaskRun :: String -> Key DagRun -> IO (Key TaskRun)
+initTaskRun tId drId = runSqlite ":memory:" . asSqlBackend $ do
+    trId <- insert $ TaskRun tId Nothing Nothing Pending drId
+    pure trId
+
+updateTaskRun trId status = update trId [TaskRunStatus =. status]

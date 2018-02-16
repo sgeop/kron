@@ -19,6 +19,7 @@ executable kron
   main-is:             Main.hs
   other-modules:       DB
                      , Status
+                     , Task
   -- other-extensions:
   build-depends:       base >=4.6
                      , beam-core
