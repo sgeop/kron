@@ -17,12 +17,16 @@ cabal-version:       >=1.10
 
 executable kron
   main-is:             Main.hs
-  other-modules:       Models
+  other-modules:       Kube
+                     , Models
                      , Task
+                     , Util
   -- other-extensions:
   build-depends:       base >=4.6
+                     , aeson
                      , beam-core
                      , beam-sqlite
+                     , containers
                      , microlens
                      , microlens-th
                      , mtl
