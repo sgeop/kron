@@ -1,6 +1,5 @@
-{ mkDerivation, base, beam-core, beam-sqlite, mtl, persistent
-, persistent-sqlite, persistent-template, stdenv, time, hlint
-, hdevtools, ghcid}:
+{ mkDerivation, base, beam-core, beam-sqlite, microlens
+, microlens-th, mtl, stdenv, time, hlint, hdevtools, ghcid}:
 mkDerivation {
   pname = "kron";
   version = "0.1.0.0";
@@ -12,9 +11,10 @@ mkDerivation {
     base
     beam-core
     beam-sqlite
-    persistent
-    persistent-sqlite
-    persistent-template
+    microlens
+    microlens-th
+    mtl
+    time
   ];
   license = stdenv.lib.licenses.bsd3;
 }

@@ -1,0 +1,10 @@
+#! /usr/bin/env nix-shell
+#! nix-shell ./nixpkgs --pure -i bash -p sqlite
+
+sqlite3 kron.db << SQL
+  CREATE TABLE task_runs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    task_id VARCHAR NOT NULL,
+    status VARCHAR NOT NULL
+  );
+SQL

@@ -17,17 +17,15 @@ cabal-version:       >=1.10
 
 executable kron
   main-is:             Main.hs
-  other-modules:       DB
-                     , Status
+  other-modules:       Models
                      , Task
   -- other-extensions:
   build-depends:       base >=4.6
                      , beam-core
                      , beam-sqlite
+                     , microlens
+                     , microlens-th
                      , mtl
-                     , persistent
-                     , persistent-sqlite
-                     , persistent-template
                      , sqlite-simple
                      , text
                      , time
