@@ -16,15 +16,53 @@ import Data.Text(Text)
 
 import GHC.Generics
 
-import Lens.Micro(Lens', (^.), (.~),(&), ix)
+import Lens.Micro(Lens', (^.), (.~), (&), ix)
 import Lens.Micro.TH
 
 import Util(dropPrefix)
 
 
-data EnvVar = EnvVar
+-- EnvVarTypes
+data TextValue = TextValue
+  { _textValueName :: Text
+  , _textValueValue :: Text
+  }
 
-$(deriveJSON defaultOptions ''EnvVar)
+$(deriveJSON
+    defaultOptions { fieldLabelModifier = dropPrefix "_textValue" }
+    ''TextValue)
+
+data SecretKeyRef = SecretKeyRef
+  { _secretKeyRefName :: Text
+  , _secretKeyRefKey :: Text
+  }
+
+$(deriveJSON
+    defaultOptions { fieldLabelModifier = dropPrefix "_secretKeyRef" }
+    ''SecretKeyRef)
+
+newtype ValueFrom = ValueFrom
+  { _valueFromSecretKeyRef :: SecretKeyRef
+  }
+
+$(deriveJSON
+    defaultOptions { fieldLabelModifier = dropPrefix "_valueFrom" }
+    ''ValueFrom)
+
+data SecretValue = SecretValue
+  { _secretValueName :: Text
+  , _secretValueValueFrom :: ValueFrom
+  }
+
+$(deriveJSON
+    defaultOptions { fieldLabelModifier = dropPrefix "_secretValue" }
+    ''SecretValue)
+
+data EnvVar
+  = EnvVarTextValue TextValue
+  | EnvVarSecretValue SecretValue
+
+$(deriveJSON defaultOptions { sumEncoding = UntaggedValue } ''EnvVar)
 
 -- Volume types
 newtype PersistentVolumeClaim = PersistentVolumeClaim
@@ -61,9 +99,47 @@ $(deriveJSON
     defaultOptions { fieldLabelModifier = dropPrefix "_githubVolume" }
     ''GithubVolume)
 
+newtype HostPath = HostPath
+  { _hostPathPath :: Text
+  }
+
+$(deriveJSON
+    defaultOptions { fieldLabelModifier = dropPrefix "_hostPath" }
+    ''HostPath)
+
+data HostVolume = HostVolume
+  { _hostVolumeName :: Text
+  , _hostVolumeHostPath :: HostPath
+  }
+
+$(deriveJSON
+    defaultOptions { fieldLabelModifier = dropPrefix "_hostVolume" }
+    ''HostVolume)
+
+newtype Secret = Secret
+  { _secretSecretName :: Text
+  }
+
+$(deriveJSON
+    defaultOptions { fieldLabelModifier = dropPrefix "_secret" }
+    ''Secret)
+
+
+data SecretVolume = SecretVolume
+  { _secretVolumeName :: Text
+  , _secretVolumeSecret :: Secret
+  }
+
+$(deriveJSON
+    defaultOptions { fieldLabelModifier = dropPrefix "_secretVolume" }
+    ''SecretVolume)
+
 data Volume
   = VolumePersistentVolume PersistentVolume
   | VolumeGithubVolume GithubVolume
+  | VolumeHostVolume HostVolume
+  | VolumeSecretVolume SecretVolume
+
 
 $(deriveJSON defaultOptions { sumEncoding = UntaggedValue } ''Volume)
 
@@ -135,6 +211,25 @@ $(deriveJSON
 
 
 -- constructors
+makeTextValue :: Text -> Text -> EnvVar
+makeTextValue name value = EnvVarTextValue
+  TextValue
+    { _textValueName = name
+    , _textValueValue = value
+    }
+
+makeSecretValue :: Text -> Text -> Text -> EnvVar
+makeSecretValue name secretName key = EnvVarSecretValue
+  SecretValue
+    { _secretValueName = name
+    , _secretValueValueFrom = ValueFrom
+      { _valueFromSecretKeyRef = SecretKeyRef
+        { _secretKeyRefName = secretName
+        , _secretKeyRefKey = key
+        }
+      }
+    }
+
 makePersistentVolume :: Text -> Volume
 makePersistentVolume name = VolumePersistentVolume
   PersistentVolume
@@ -151,6 +246,24 @@ makeGithubVolume name rev = VolumeGithubVolume
     , _githubVolumeGitRepo = GitRepo
       { _gitRepoRepository = name
       , _gitRepoRevision = rev
+      }
+    }
+
+makeHostVolume :: Text -> Text -> Volume
+makeHostVolume name path = VolumeHostVolume
+  HostVolume
+    { _hostVolumeName = name
+    , _hostVolumeHostPath = HostPath
+      { _hostPathPath = path
+      }
+    }
+
+makeSecretVolume :: Text -> Volume
+makeSecretVolume name = VolumeSecretVolume
+  SecretVolume
+    { _secretVolumeName = name
+    , _secretVolumeSecret = Secret
+      { _secretSecretName = name
       }
     }
 
@@ -202,6 +315,18 @@ pdtPod pdtPath = makePod name "pdt"
           & command .~ ["/spark-pdt", pdtPath]
           & volumeMounts .~
             [ makeVolumeMount "datapipeline-config" "/config"
+            ]
+          & env .~
+            [ makeTextValue "CONFIG_ROOT" "/config/datapipeline-config"
+            , makeTextValue "SHUFFLE_PARTITIONS" "400"
+            , makeSecretValue
+                "AWS_ACCESS_KEY_ID"
+                "data-pipeline"
+                "aws_access_key_id"
+            , makeSecretValue
+                "AWS_SECRET_ACCESS_KEY"
+                "data-pipeline"
+                "aws_secret_access_key"
             ]
         ]
       & volumes .~
