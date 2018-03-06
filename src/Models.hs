@@ -17,7 +17,7 @@ module Models where
 import Data.Semigroup((<>))
 import Data.Text(Text)
 
-import Database.Beam
+import Database.Beam as Beam
 import Database.Beam.Backend
 import Database.Beam.Backend.SQL
 import Database.Beam.Backend.Types(Auto)
@@ -93,8 +93,7 @@ drScheduledDate f dr =
 
 
 data TaskRunT f = TaskRun
-  { _trId :: Columnar f (Auto Int)
-  , _trTaskId :: Columnar f Text
+  { _trTaskId :: Columnar f Text
   , _trStatus :: Columnar f Status
   , _trForDagRun :: PrimaryKey DagRunT f
   } deriving Generic
@@ -105,9 +104,9 @@ deriving instance Show TaskRun
 
 instance Table TaskRunT where
   data PrimaryKey TaskRunT f =
-    TaskRunId (C f (Auto Int)) deriving Generic
+    TaskRunId (C f Text) deriving Generic
 
-  primaryKey = TaskRunId . _trId
+  primaryKey = TaskRunId . _trTaskId
 
 type TaskRunId = PrimaryKey TaskRunT Identity
 
@@ -116,14 +115,14 @@ instance Beamable TaskRunT
 instance Beamable (PrimaryKey TaskRunT)
 
 -- lenses for TaskRun fields
-trId :: Lens' (TaskRunT f) (C f (Auto Int))
-trId f tr = (\a -> tr { _trId = a }) <$> f (_trId tr)
-
 trTaskId :: Lens' (TaskRunT f) (C f Text)
 trTaskId f tr = (\a -> tr { _trTaskId = a }) <$> f (_trTaskId tr)
 
 trStatus :: Lens' (TaskRunT f) (C f Status)
 trStatus f tr = (\a -> tr { _trStatus = a }) <$> f (_trStatus tr)
+
+trForDagRun :: Lens' (TaskRunT f) (PrimaryKey DagRunT f)
+trForDagRun f tr = (\a -> tr { _trForDagRun = a}) <$> f (_trForDagRun tr)
 
 
 
@@ -142,28 +141,48 @@ kronDb = defaultDbSettings
 
 
 initDagRun :: Connection -> Text -> Text -> IO DagRun
-initDagRun conn name schedDate = liftIO $ do
-  withDatabase conn $ runInsert $
-  -- withDatabaseDebug putStrLn conn $ runInsert $
-    insert (kronDb ^. kronDagRuns) $
-      insertValues [ dagRun ]
-  pure dagRun
+initDagRun conn name schedDate = do
+  prevDagRun <- lookupDagRun
+  case prevDagRun of
+    Just dagRun -> pure dagRun
+    Nothing -> do
+      let dagRun = DagRun idStr name schedDate
+      liftIO $ withDatabase conn $
+        runInsert $ insert (kronDb ^. kronDagRuns) $ insertValues [dagRun]
+      pure dagRun
   where
-    dagRun = DagRun (name <> "-" <> schedDate) name schedDate
+    idStr = (name <> "-" <> schedDate)
+    lookupDagRun = liftIO $ withDatabase conn $ runSelectReturningOne $
+      Beam.lookup (kronDb ^. kronDagRuns) (DagRunId idStr)
 
 
 initTaskRun :: Connection -> DagRun -> Text -> IO ()
 initTaskRun conn dagRun taskId = liftIO $
+  -- if (getStatus
   withDatabase conn $ runInsert $
   -- withDatabaseDebug putStrLn conn $ runInsert $
     insert (kronDb ^. kronTaskRuns) $
-      insertValues [ TaskRun (Auto Nothing) taskId Pending (pk dagRun)]
+      insertValues [ TaskRun taskId Pending (pk dagRun)]
 
 
-updateTaskRun :: Connection -> Text -> Status -> IO ()
-updateTaskRun conn taskId status = liftIO $
+getTaskRun :: Connection -> DagRun -> Text -> IO (Maybe TaskRun)
+getTaskRun conn dagRun taskId = liftIO $
+   withDatabase conn $ runSelectReturningOne $ select $ do
+     tr <- (all_ (kronDb ^. kronTaskRuns))
+     guard_ ((tr ^. trForDagRun ==. val_ dagRunId) 
+         &&. (tr ^. trTaskId ==. val_ taskId))
+     pure tr
+   where dagRunId = DagRunId $ dagRun ^. drId
+       
+       
+
+
+updateTaskRun :: Connection -> DagRun -> Text -> Status -> IO ()
+updateTaskRun conn dagRun taskId status = liftIO $
   withDatabase conn $
   -- withDatabaseDebug putStrLn conn $
     runUpdate $ update (kronDb ^. kronTaskRuns)
                        (\tr -> [ tr ^. trStatus <-. val_ status ])
-                       (\tr -> tr ^. trTaskId ==. val_ taskId)
+                       (\tr -> tr ^. trTaskId ==. val_ taskId 
+                           &&. tr ^. trForDagRun ==. val_ dagRunId)
+  where dagRunId = DagRunId $ dagRun ^. drId

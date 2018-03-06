@@ -11,7 +11,7 @@ import Control.Concurrent.MVar
   , readMVar
   )
 import Control.Exception
-import Data.Text(Text)
+import Data.Text(Text, unpack)
 import Database.SQLite.Simple
 import Models
 
@@ -28,17 +28,31 @@ data Task = Task
 runTask :: Text -> IO () -> MVar Status -> [MVar Status] -> Connection -> DagRun -> IO ()
 runTask taskId exec status deps conn dagRun = do
   forkIO (do
-    print dagRun
-    initTaskRun conn dagRun taskId
-    depState <- traverse readMVar deps
-    updateTaskRun conn taskId Running
-    result <- if any (== Failed) depState
-              then return UpstreamFailed
-              else (exec *> pure Succeeded)
-                `catch` \(e :: SomeException) -> return Failed
-    updateTaskRun conn taskId result
+    result <- execTask
+    updateTaskRun conn dagRun taskId result
     putMVar status result)
   pure ()
+  where
+    execTask = do
+      prevTr <- getTaskRun conn dagRun taskId
+      putStrLn ("Status: " ++ show prevTr)
+      if (_trStatus <$> prevTr) == Just Succeeded
+      then putStrLn "already finished, skipping.." *> return Succeeded
+      else do
+        depsState <- traverse readMVar deps
+        case prevTr of
+          Nothing -> initTaskRun conn dagRun taskId
+          _ -> updateTaskRun conn dagRun taskId Pending
+        if any (== Failed) depsState
+        then return UpstreamFailed
+        else do
+           updateTaskRun conn dagRun taskId Running
+           putStrLn ("Running task: " ++ unpack taskId)
+           exec
+           pure Succeeded
+         `catch` \(e :: SomeException) -> return Failed
+    
+
 
 
 mkTask :: Text -> IO () -> [Task] -> IO Task
