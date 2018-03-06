@@ -1,4 +1,5 @@
-{-# Language ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Task where
 
@@ -19,16 +20,16 @@ data Config = Config { conn :: Connection }
 
 data Task = Task
   { _taskId :: Text
-  , _run :: IO ()
+  , _run :: Connection -> DagRun -> IO ()
   , _status :: MVar Status
   , _dependencies :: [MVar Status]
   }
 
-runTask :: Text -> IO () -> MVar Status -> [MVar Status] -> IO ()
-runTask taskId exec status deps = do
+runTask :: Text -> IO () -> MVar Status -> [MVar Status] -> Connection -> DagRun -> IO ()
+runTask taskId exec status deps conn dagRun = do
   forkIO (do
-    conn <- open "kron.db"
-    initTaskRun conn taskId
+    print dagRun
+    initTaskRun conn dagRun taskId
     depState <- traverse readMVar deps
     updateTaskRun conn taskId Running
     result <- if any (== Failed) depState
@@ -52,9 +53,11 @@ mkTask taskId exec deps = do
     }
 
 
-runDag :: IO [Task] -> IO ()
-runDag tasks = do
+runDag :: Text -> Text -> IO [Task] -> IO ()
+runDag dagName schedDate tasks = do
+  conn <- open "kron.db"
+  dagRun <- initDagRun conn dagName schedDate
   tasks' <- tasks
-  traverse _run tasks'
+  traverse (\t -> (_run t) conn dagRun) tasks'
   results <- traverse (readMVar . _status) tasks'
   print results
