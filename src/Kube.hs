@@ -26,7 +26,7 @@ import Util(dropPrefix)
 data TextValue = TextValue
   { _textValueName :: Text
   , _textValueValue :: Text
-  }
+  } deriving Show
 
 $(deriveJSON
     defaultOptions { fieldLabelModifier = dropPrefix "_textValue" }
@@ -35,7 +35,7 @@ $(deriveJSON
 data SecretKeyRef = SecretKeyRef
   { _secretKeyRefName :: Text
   , _secretKeyRefKey :: Text
-  }
+  } deriving Show
 
 $(deriveJSON
     defaultOptions { fieldLabelModifier = dropPrefix "_secretKeyRef" }
@@ -43,7 +43,7 @@ $(deriveJSON
 
 newtype ValueFrom = ValueFrom
   { _valueFromSecretKeyRef :: SecretKeyRef
-  }
+  } deriving Show
 
 $(deriveJSON
     defaultOptions { fieldLabelModifier = dropPrefix "_valueFrom" }
@@ -52,7 +52,7 @@ $(deriveJSON
 data SecretValue = SecretValue
   { _secretValueName :: Text
   , _secretValueValueFrom :: ValueFrom
-  }
+  } deriving Show
 
 $(deriveJSON
     defaultOptions { fieldLabelModifier = dropPrefix "_secretValue" }
@@ -61,12 +61,14 @@ $(deriveJSON
 data EnvVar
   = EnvVarTextValue TextValue
   | EnvVarSecretValue SecretValue
+  deriving Show
 
 $(deriveJSON defaultOptions { sumEncoding = UntaggedValue } ''EnvVar)
 
 -- Volume types
 newtype PersistentVolumeClaim = PersistentVolumeClaim
   { _PersistentVolumeClaimClaimName :: Text }
+  deriving Show
 
 $(deriveJSON
     defaultOptions { fieldLabelModifier = dropPrefix "_persistentVolumeClaim" }
@@ -75,7 +77,7 @@ $(deriveJSON
 data PersistentVolume = PersistentVolume
   { _persistentVolumeName :: Text
   , _persistentVolumePersistentVolumeClaim :: PersistentVolumeClaim
-  }
+  } deriving Show
 
 $(deriveJSON
     defaultOptions { fieldLabelModifier = dropPrefix "_persistentVolume" }
@@ -84,7 +86,7 @@ $(deriveJSON
 data GitRepo = GitRepo
   { _gitRepoRepository :: Text
   , _gitRepoRevision :: Text
-  }
+  } deriving Show
 
 $(deriveJSON
     defaultOptions { fieldLabelModifier = dropPrefix "_gitRepo" }
@@ -93,7 +95,7 @@ $(deriveJSON
 data GithubVolume = GithubVolume
   { _githubVolumeName :: Text
   , _githubVolumeGitRepo :: GitRepo
-  }
+  } deriving Show
 
 $(deriveJSON
     defaultOptions { fieldLabelModifier = dropPrefix "_githubVolume" }
@@ -101,7 +103,7 @@ $(deriveJSON
 
 newtype HostPath = HostPath
   { _hostPathPath :: Text
-  }
+  } deriving Show
 
 $(deriveJSON
     defaultOptions { fieldLabelModifier = dropPrefix "_hostPath" }
@@ -110,7 +112,7 @@ $(deriveJSON
 data HostVolume = HostVolume
   { _hostVolumeName :: Text
   , _hostVolumeHostPath :: HostPath
-  }
+  } deriving Show
 
 $(deriveJSON
     defaultOptions { fieldLabelModifier = dropPrefix "_hostVolume" }
@@ -118,7 +120,7 @@ $(deriveJSON
 
 newtype Secret = Secret
   { _secretSecretName :: Text
-  }
+  } deriving Show
 
 $(deriveJSON
     defaultOptions { fieldLabelModifier = dropPrefix "_secret" }
@@ -128,7 +130,7 @@ $(deriveJSON
 data SecretVolume = SecretVolume
   { _secretVolumeName :: Text
   , _secretVolumeSecret :: Secret
-  }
+  } deriving Show
 
 $(deriveJSON
     defaultOptions { fieldLabelModifier = dropPrefix "_secretVolume" }
@@ -139,7 +141,7 @@ data Volume
   | VolumeGithubVolume GithubVolume
   | VolumeHostVolume HostVolume
   | VolumeSecretVolume SecretVolume
-
+  deriving Show
 
 $(deriveJSON defaultOptions { sumEncoding = UntaggedValue } ''Volume)
 
@@ -147,7 +149,7 @@ $(deriveJSON defaultOptions { sumEncoding = UntaggedValue } ''Volume)
 data VolumeMount = VolumeMount
   { _volumeMountName :: Text
   , _volumeMountMountPath :: Text
-  }
+  } deriving Show
 
 $(deriveJSON
     defaultOptions { fieldLabelModifier = dropPrefix "_volumeMount" }
@@ -158,7 +160,7 @@ data Metadata = Metadata
   { _metadataName :: Text
   , _metadataNamespace :: Text
   , _metadataLabels :: Map.Map Text Text
-  }
+  } deriving Show
 
 makeFields ''Metadata
 
@@ -174,7 +176,7 @@ data Container = Container
   , _containerCommand :: [Text]
   , _containerVolumeMounts :: [VolumeMount]
   , _containerEnv :: [EnvVar]
-  }
+  } deriving Show
 
 makeFields ''Container
 
@@ -187,7 +189,7 @@ data Spec = Spec
   { _specRestartPolicy :: Text
   , _specContainers :: [Container]
   , _specVolumes :: [Volume]
-  }
+  } deriving Show
 
 makeFields ''Spec
 
@@ -201,7 +203,7 @@ data Pod = Pod
   , _podKind :: Text
   , _podMetadata :: Metadata
   , _podSpec :: Spec
-  }
+  } deriving Show
 
 makeFields ''Pod
 

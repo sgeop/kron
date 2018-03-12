@@ -11,12 +11,11 @@ import Control.Concurrent.MVar
   , readMVar
   )
 import Control.Exception
+import Data.Functor(($>))
 import Data.Text(Text, unpack)
 import Database.SQLite.Simple
 import Models
 
-
-data Config = Config { conn :: Connection }
 
 data Task = Task
   { _taskId :: Text
@@ -37,13 +36,13 @@ runTask taskId exec status deps conn dagRun = do
       prevTr <- getTaskRun conn dagRun taskId
       putStrLn ("Status: " ++ show prevTr)
       if (_trStatus <$> prevTr) == Just Succeeded
-      then putStrLn "already finished, skipping.." *> return Succeeded
+      then putStrLn "already finished, skipping.." $> Succeeded
       else do
         depsState <- traverse readMVar deps
         case prevTr of
           Nothing -> initTaskRun conn dagRun taskId
           _ -> updateTaskRun conn dagRun taskId Pending
-        if any (== Failed) depsState
+        if Failed `elem` depsState
         then return UpstreamFailed
         else do
            updateTaskRun conn dagRun taskId Running
@@ -72,6 +71,6 @@ runDag dagName schedDate tasks = do
   conn <- open "kron.db"
   dagRun <- initDagRun conn dagName schedDate
   tasks' <- tasks
-  traverse (\t -> (_run t) conn dagRun) tasks'
+  traverse (\t -> _run t conn dagRun) tasks'
   results <- traverse (readMVar . _status) tasks'
   print results

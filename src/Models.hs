@@ -151,7 +151,7 @@ initDagRun conn name schedDate = do
         runInsert $ insert (kronDb ^. kronDagRuns) $ insertValues [dagRun]
       pure dagRun
   where
-    idStr = (name <> "-" <> schedDate)
+    idStr = name <> "-" <> schedDate
     lookupDagRun = liftIO $ withDatabase conn $ runSelectReturningOne $
       Beam.lookup (kronDb ^. kronDagRuns) (DagRunId idStr)
 
@@ -168,13 +168,11 @@ initTaskRun conn dagRun taskId = liftIO $
 getTaskRun :: Connection -> DagRun -> Text -> IO (Maybe TaskRun)
 getTaskRun conn dagRun taskId = liftIO $
    withDatabase conn $ runSelectReturningOne $ select $ do
-     tr <- (all_ (kronDb ^. kronTaskRuns))
+     tr <- all_ (kronDb ^. kronTaskRuns)
      guard_ ((tr ^. trForDagRun ==. val_ dagRunId) 
          &&. (tr ^. trTaskId ==. val_ taskId))
      pure tr
    where dagRunId = DagRunId $ dagRun ^. drId
-       
-       
 
 
 updateTaskRun :: Connection -> DagRun -> Text -> Status -> IO ()
